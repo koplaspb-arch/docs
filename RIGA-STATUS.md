@@ -1,6 +1,6 @@
 # RIGA Honeypot — Архитектура и Статус Сервисов
 
-**Дата обновления**: 2025-01-20  
+**Дата обновления**: 2025-07-17  
 **Локация**: Riga VPS  
 **Цель**: Мониторинг SSH-атак, сбор honeytokens, анализ угроз, юридическая отчётность
 
@@ -181,6 +181,60 @@ cscli decisions list
 **Service**: `honeytoken-watcher.service`  
 **Script**: `/opt/riga/scripts/honeytoken_watcher.sh`
 
+
+#### AmneziaWG (WireGuard Obfuscation)
+
+**Контейнер**: `amnezia-wg`
+**Порт**: `51820/udp` (внешний)
+**Протокол**: AmneziaWG (обфусцированный WireGuard)
+
+**Назначение**:
+- Скрытый VPN-туннель с обфускацией трафика (защита от DPI)
+- Безопасный административный доступ к Riga VPS без раскрытия реального SSH-порта
+- Замена классического WireGuard для обхода блокировок
+
+**Конфигурация сервера** (`/opt/amnezia/awg0.conf`):
+```
+[Interface]
+Address = 10.8.0.1/24
+ListenPort = 51820
+PrivateKey = <SERVER_PRIVATE_KEY>
+Jc = 4
+Jmin = 40
+Jmax = 70
+S1 = 0
+S2 = 0
+H1 = 1
+H2 = 2
+H3 = 3
+H4 = 4
+
+[Peer]
+PublicKey = <CLIENT_PUBLIC_KEY>
+AllowedIPs = 10.8.0.2/32
+```
+
+**Firewall правило**:
+```bash
+iptables -A INPUT -p udp --dport 51820 -j ACCEPT
+```
+
+**Управление**:
+```bash
+# Статус туннеля
+awg show
+
+# Применить конфиг
+awg-quick up awg0
+
+# Systemd unit
+systemctl enable --now awg-quick@awg0
+```
+
+**Клиент**: AmneziaVPN (iOS / Android / Windows / macOS)
+**Статус**: ✅ Активен
+
+
 **Мониторинг**:
 1. **SSH Honeytokens** — успешные логины в Cowrie с уникальными credentials  
 2. **File Honeytokens** — `inotify` на `/opt/riga/honeytokens/`
@@ -226,7 +280,7 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
-**Статус**: ✅ Активен (перезапущен 2025-01-20)
+**Статус**: ✅ Активен (перезапущен 2025-07-17)
 
 ---
 
@@ -346,7 +400,7 @@ done
 ```markdown
 ## Инцидент: SSH Brute-Force Attack
 
-**Дата/Время**: 2025-01-20 03:45:32 UTC  
+**Дата/Время**: 2025-07-17 03:45:32 UTC  
 **Источник**: 192.0.2.15 (AS15169, United States)  
 **Honeypot**: riga-honeypot-01  
 **Протокол**: SSH (TCP/22)
@@ -436,7 +490,7 @@ fi
 
 ## 7. Обновления Системы
 
-### Недавние Обновления (2025-01-20)
+### Недавние Обновления (2025-07-17)
 
 | Компонент | Старая версия | Новая версия | Статус |
 |-----------|--------------|--------------|--------|
@@ -558,13 +612,18 @@ jq -r '.src_ip' /opt/riga/honeypot/logs/cowrie.json | sort | uniq -c | sort -rn 
 
 ## 12. Changelog
 
-### 2025-01-20
+### 2025-07-17
 - ✅ Перенастроен `honeytoken-watcher` на путь `/opt/riga/honeypot/logs/cowrie.json`  
 - ✅ Обновлён CrowdSec до версии 1.7.8  
 - ✅ Обновлён Docker до версии 29.5.2  
 - ✅ Исправлены права доступа на `/opt/riga/honeypot/logs` (chown 999:999)  
 - ✅ Добавлен systemd unit `honeytoken-watcher.service`  
 - ✅ Проведён тест Telegram-алертов (успешно)
+- - ✅ Установлен и настроен AmneziaWG (WireGuard с обфускацией) на порту 51820/udp
+- ✅ Добавлен подраздел AmneziaWG в секцию Proxy & VPN
+- ✅ Настроен системный сервис `awg-quick@awg0` (systemd)
+- ✅ Проверено соединение через AmneziaVPN клиент
+- ✅ Обновлена дата документа RIGA-STATUS.md
 
 ### 2025-01-15
 - Первичная настройка Cowrie honeypot  
@@ -575,4 +634,4 @@ jq -r '.src_ip' /opt/riga/honeypot/logs/cowrie.json | sort | uniq -c | sort -rn 
 
 **Конец документа**  
 *Автор: koplaspb-arch*  
-*Последнее обновление: 2025-01-20*
+*Последнее обновление: 2025-07-17*
